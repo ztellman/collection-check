@@ -1,14 +1,11 @@
-# collection-check
+Clojure's default data structures are great, but the problems we're trying to solve call for something else.  However, alternate data structures should still behave as much as possible like vectors, sets, or maps.
 
-A Clojure library designed to ... well, that part is up to you.
+### usage
 
-## Usage
 
-FIXME
 
-## License
+### license
 
-Copyright © 2013 FIXME
+Copyright © 2013 Zachary Tellman
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the MIT License.
