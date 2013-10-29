@@ -1,4 +1,6 @@
 (ns collection-check
+  (:use
+    [clojure.pprint])
   (:require
     [clojure.string :as str]
     [simple-check.generators :as gen]
@@ -85,45 +87,41 @@
   [coll-a coll-b vector-like? action-generator]
   (let [transient? (and (transient? coll-a) (transient? coll-b))]
     (gen/fmap
-      (fn [action-lists]
+      (fn [actions]
         (reduce
-          (fn [coll+coll+actions actions]
-            (reduce
-              (fn [[coll-a coll-b prev-actions] [action x y :as act]]
+          (fn [[coll-a coll-b prev-actions] [action x y :as act]]
 
-                ;; if it's a vector, we need to choose a valid index
-                (let [idx (when (and vector-like? (#{:assoc :assoc!} action))
-                            (if (< 900 x)
-                              (count coll-a)
-                              (int (* (count coll-a) (/ x 1e3)))))
-                      f (case action
-                          :persistent! persistent!
-                          :transient transient
-                          :pop #(if (empty? %) % (pop %))
-                          :pop! #(if (= 0 (count %)) % (pop! %))
-                          :conj #(conj % x)
-                          :conj! #(conj! % x)
-                          :disj #(disj % x)
-                          :disj! #(disj! % x)
-                          :assoc #(if idx
-                                    (assoc % idx y)
-                                    (assoc % x y))
-                          :assoc! #(if idx
-                                     (assoc! % idx y)
-                                     (assoc! % x y))
-                          :dissoc #(dissoc % x)
-                          :dissoc! #(dissoc! % x))]
-                  [(f coll-a)
-                   (f coll-b)
-                   (conj
-                     prev-actions
-                     (if idx
-                       [action idx y]
-                       act))]))
-              coll+coll+actions
-              actions))
+            ;; if it's a vector, we need to choose a valid index
+            (let [idx (when (and vector-like? (#{:assoc :assoc!} action))
+                        (if (< 900 x)
+                          (count coll-a)
+                          (int (* (count coll-a) (/ x 1e3)))))
+                  f (case action
+                      :persistent! persistent!
+                      :transient transient
+                      :pop #(if (empty? %) % (pop %))
+                      :pop! #(if (= 0 (count %)) % (pop! %))
+                      :conj #(conj % x)
+                      :conj! #(conj! % x)
+                      :disj #(disj % x)
+                      :disj! #(disj! % x)
+                      :assoc #(if idx
+                                (assoc % idx y)
+                                (assoc % x y))
+                      :assoc! #(if idx
+                                 (assoc! % idx y)
+                                 (assoc! % x y))
+                      :dissoc #(dissoc % x)
+                      :dissoc! #(dissoc! % x))]
+              [(f coll-a)
+               (f coll-b)
+               (conj
+                 prev-actions
+                 (if idx
+                   [action idx y]
+                   act))]))
           [coll-a coll-b []]
-          action-lists))
+          (apply concat actions)))
       (gen/list action-generator))))
 
 (defn gen-vector-like
@@ -217,7 +215,10 @@
 
 (defn- assert-not-failed [x]
   (if (:fail x)
-    (throw (Exception. (pr-str x)))
+    (let [[[a b actions]] (-> x :shrunk :smallest)]
+      (throw (Exception.
+               (str (.getMessage (:result x))
+                 "\n  a = " (pr-str a) "\n  b = " (pr-str b) "\n  actions = " (pr-str actions)))))
     x))
 
 (defn assert-vector-like
@@ -242,8 +243,8 @@
            true)))))
 
 (defn assert-map-like
-  ([empty-coll element-generator]
-     (assert-map-like 1e3 empty-coll element-generator))
+  ([empty-coll key-generator value-generator]
+     (assert-map-like 1e3 empty-coll key-generator value-generator))
   ([n empty-coll key-generator value-generator]
      (assert-not-failed
        (quick-check n
