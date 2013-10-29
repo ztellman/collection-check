@@ -10,9 +10,11 @@ Since this is only for testing, it should be added as a `:dev` dependency:
 {:profiles {:dev {:dependencies [[collection-check "0.1.0-SNAPSHOT"]]}}}
 ```
 
-To validate a vector-like data structure, you can use `(collection-check/assert-vector-like empty-collection element-generator)`.  For instance:
+To validate a vector-like data structure, you can use `(assert-vector-like empty-collection element-generator)`.  For instance:
 
 ```clj
+> (require '[collection-check :refer :all])
+nil
 > (assert-vector-like [] simple-check.generators/int)
 true
 ```
@@ -24,7 +26,7 @@ We can also specify the number of tests we'd like to perform, which defaults to 
 true
 ```
 
-If the assertion fails, it will throw an exception with a printed tuple of `[custom-collection reference-collection actions]`, where actions are the calls made on each collection, such as:
+If the assertion fails, it will throw an exception describing the custom and reference collections, and the actions that were taken to reproduce this error:
 
 ```clj
  java.lang.Exception: Assert failed: (= a b)
