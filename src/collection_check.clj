@@ -5,7 +5,9 @@
     [clojure.string :as str]
     [simple-check.generators :as gen]
     [simple-check.properties :as prop]
-    [simple-check.core :refer (quick-check)]))
+    [simple-check.core :refer (quick-check)])
+  (:import
+    [java.util Collection List]))
 
 ;;;
 
@@ -158,22 +160,22 @@
 
 (defn assert-equivalent-collections
   [a b]
-  (assert (= (count a) (count b) (.size a) (.size b)))
+  (assert (= (count a) (count b) (.size ^Collection a) (.size ^Collection b)))
   (assert (= a b))
   (assert (= b a))
-  (assert (.equals a b))
-  (assert (.equals b a))
+  (assert (.equals ^Object a b))
+  (assert (.equals ^Object b a))
   (assert (= (hash a) (hash b)))
-  (assert (= (.hashCode a) (.hashCode b)))
+  (assert (= (.hashCode ^Object a) (.hashCode ^Object b)))
   (assert (= a b
             (into (empty a) a)
             (into (empty b) b)
             (into (empty a) b)
             (into (empty b) a)))
-  (assert (= (conj (empty a) (first a))
-            (reduce #(reduced (conj %1 %2)) (empty a) [(first a)])))
-  (assert (= (conj (empty b) (first b))
-            (reduce #(reduced (conj %1 %2)) (empty b) [(first b)]))))
+  (assert (= (into (empty a) (take 1 a))
+            (reduce #(reduced (conj %1 %2)) (empty a) a)))
+  (assert (= (into (empty b) (take 1 b))
+            (reduce #(reduced (conj %1 %2)) (empty b) b))))
 
 (defn assert-equivalent-vectors [a b]
   (assert-equivalent-collections a b)
@@ -184,8 +186,8 @@
             (map #(b %) (range (count b)))))
   (assert (= (map #(get a %) (range (count a)))
             (map #(get b %) (range (count b)))))
-  (assert (= (map #(.get a %) (range (count a)))
-            (map #(.get b %) (range (count b)))))
+  (assert (= (map #(.get ^List a %) (range (count a)))
+            (map #(.get ^List b %) (range (count b)))))
   (assert (= 0 (compare a b))))
 
 (defn assert-equivalent-sets [a b]
@@ -218,7 +220,8 @@
     (let [[[a b actions]] (-> x :shrunk :smallest)]
       (throw (Exception.
                (str (.getMessage (:result x))
-                 "\n  a = " (pr-str a) "\n  b = " (pr-str b) "\n  actions = " (pr-str actions)))))
+                 "\n  a = " (pr-str a) "\n  b = " (pr-str b) "\n  actions = " (pr-str actions))
+               (:result x))))
     x))
 
 (defn assert-vector-like
