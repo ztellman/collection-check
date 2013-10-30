@@ -9,6 +9,8 @@
   (:import
     [java.util Collection List Map]))
 
+(set! *warn-on-reflection* false)
+
 ;;;
 
 (defn- tuple* [& args]
@@ -159,7 +161,7 @@
 
 (defn assert-equivalent-collections
   [a b]
-  (assert (= (count a) (count b) (.size ^Collection a) (.size ^Collection b)))
+  (assert (= (count a) (count b) (.size a) (.size b)))
   (assert (= a b))
   (assert (= b a))
   (assert (.equals ^Object a b))
