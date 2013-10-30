@@ -6,5 +6,5 @@
 
 (deftest test-identities
   (assert-vector-like 100 [] gen/int)
-  (assert-set-like 100 #{} gen/int)
-  (assert-map-like 100 {} gen/int gen/int))
+  (assert-map-like 100 {} gen/int gen/int)
+  (assert-set-like 100 #{} gen/int))

@@ -221,7 +221,14 @@
     (let [[[a b actions]] (-> x :shrunk :smallest)]
       (throw (Exception.
                (str (.getMessage ^Throwable (:result x))
-                 "\n  a = " (pr-str a) "\n  b = " (pr-str b) "\n  actions = " (pr-str actions))
+                 "\n  a = " (pr-str a) "\n  b = " (pr-str b)
+                 "\n  actions = " (->> actions
+                                    (map (fn [[f & rst]]
+                                           (if (empty? rst)
+                                             (symbol (name f))
+                                             (list* (symbol (name f)) rst))))
+                                    (list* '-> 'coll)
+                                    pr-str))
                (:result x))))
     x))
 
