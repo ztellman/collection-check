@@ -7,7 +7,7 @@
     [simple-check.properties :as prop]
     [simple-check.core :refer (quick-check)])
   (:import
-    [java.util Collection List]))
+    [java.util Collection List Map]))
 
 ;;;
 
@@ -94,34 +94,33 @@
           (fn [[coll-a coll-b prev-actions] [action x y :as act]]
 
             ;; if it's a vector, we need to choose a valid index
-            (let [idx (when (and vector-like? (#{:assoc :assoc!} action))
-                        (if (< 900 x)
-                          (count coll-a)
-                          (int (* (count coll-a) (/ x 1e3)))))
-                  f (case action
-                      :persistent! persistent!
-                      :transient transient
-                      :pop #(if (empty? %) % (pop %))
-                      :pop! #(if (= 0 (count %)) % (pop! %))
-                      :conj #(conj % x)
-                      :conj! #(conj! % x)
-                      :disj #(disj % x)
-                      :disj! #(disj! % x)
-                      :assoc #(if idx
-                                (assoc % idx y)
-                                (assoc % x y))
-                      :assoc! #(if idx
-                                 (assoc! % idx y)
-                                 (assoc! % x y))
-                      :dissoc #(dissoc % x)
-                      :dissoc! #(dissoc! % x))]
-              [(f coll-a)
-               (f coll-b)
-               (conj
-                 prev-actions
-                 (if idx
-                   [action idx y]
-                   act))]))
+            (try
+              (let [idx (when (and vector-like? (#{:assoc :assoc!} action))
+                          (if (< 900 x)
+                            (count coll-a)
+                            (int (* (count coll-a) (/ x 1e3)))))
+                    [action x y :as act] (if idx
+                                           [action idx y]
+                                           act)
+                    f (case action
+                        :persistent! persistent!
+                        :transient transient
+                        :pop #(if (empty? %) % (pop %))
+                        :pop! #(if (= 0 (count %)) % (pop! %))
+                        :conj #(conj % x)
+                        :conj! #(conj! % x)
+                        :disj #(disj % x)
+                        :disj! #(disj! % x)
+                        :assoc #(assoc % x y)
+                        :assoc! #(assoc! % x y)
+                        :dissoc #(dissoc % x)
+                        :dissoc! #(dissoc! % x))]
+                (try
+                  [(f coll-a)
+                   (f coll-b)
+                   (conj prev-actions act)]
+                  (catch Throwable e
+                    (throw (Exception. (pr-str (conj prev-actions act)) e)))))))
           [coll-a coll-b []]
           (apply concat actions)))
       (gen/list action-generator))))
@@ -206,8 +205,8 @@
               (map #(get b %) ks)))
     (assert (= (map #(a %) ks)
               (map #(b %) ks)))
-    (assert (= (map #(.get a %) ks)
-              (map #(.get b %) ks))))
+    (assert (= (map #(.get ^Map a %) ks)
+              (map #(.get ^Map b %) ks))))
   (assert (and
             (every? #(= (key %) (first %)) a)
             (every? #(= (key %) (first %)) b)))
@@ -219,7 +218,7 @@
   (if (:fail x)
     (let [[[a b actions]] (-> x :shrunk :smallest)]
       (throw (Exception.
-               (str (.getMessage (:result x))
+               (str (.getMessage ^Throwable (:result x))
                  "\n  a = " (pr-str a) "\n  b = " (pr-str b) "\n  actions = " (pr-str actions))
                (:result x))))
     x))
