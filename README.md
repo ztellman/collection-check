@@ -32,7 +32,7 @@ If the assertion fails, it will throw an exception describing the custom and ref
  java.lang.Exception: Assert failed: (= a b)
   a = #{0 9 -10}
   b = #{0 9 -10}
-  actions = [[:transient] [:conj! -10] [:persistent!] [:transient] [:conj! 9] [:persistent!] [:transient] [:disj! -10] [:persistent!] [:conj -10]]
+  actions = (-> coll transient (conj! -10) persistent! transient (conj! 9) persistent! transient (disj! -10) persistent! (conj -10))
 ```
 
 We can do the same for sets via `assert-set-like`.  For maps, `assert-map-like` takes two generators, one for keys, and another for values.
