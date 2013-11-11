@@ -159,6 +159,9 @@
 
 ;;;
 
+;; indirection for 1.4 compatibility
+(def reduced* (ns-resolve 'clojure.core 'reduced))
+
 (defn assert-equivalent-collections
   [a b]
   (assert (= (count a) (count b) (.size a) (.size b)))
@@ -173,10 +176,11 @@
             (into (empty b) b)
             (into (empty a) b)
             (into (empty b) a)))
-  (assert (= (into (empty a) (take 1 a))
-            (reduce #(reduced (conj %1 %2)) (empty a) a)))
-  (assert (= (into (empty b) (take 1 b))
-            (reduce #(reduced (conj %1 %2)) (empty b) b))))
+  (when reduced*
+    (assert (= (into (empty a) (take 1 a))
+               (reduce #(reduced* (conj %1 %2)) (empty a) a)))
+    (assert (= (into (empty b) (take 1 b))
+               (reduce #(reduced* (conj %1 %2)) (empty b) b)))))
 
 (defn assert-equivalent-vectors [a b]
   (assert-equivalent-collections a b)
