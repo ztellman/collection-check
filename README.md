@@ -1,6 +1,6 @@
 Clojure's default data structures are great, but sometimes the problems we're trying to solve call for something else.  However, alternate data structures should still behave as much as possible like vectors, sets, or maps.
 
-This library tests whether a given data structure is equivalent to whatever data structure it mimics, using [simple-check](https://github.com/reiddraper/simple-check).  This is both a validation that the data structure is correct and that it implements all necessary interfaces.
+This library tests whether a given data structure is equivalent to whatever data structure it mimics, using [test.check](https://github.com/clojure/test.check).  This is both a validation that the data structure is correct and that it implements all necessary interfaces.
 
 ### usage
 
