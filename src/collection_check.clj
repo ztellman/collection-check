@@ -150,6 +150,8 @@
 
 (defn assert-equivalent-vectors [a b]
   (assert-equivalent-collections a b)
+  (assert (= (map identity (next a))
+             (map identity (next b))))
   (assert (= (first a) (first b)))
   (assert (= (map #(nth a %) (range (count a)))
             (map #(nth b %) (range (count b)))))
