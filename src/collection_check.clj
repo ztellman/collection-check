@@ -36,6 +36,7 @@
       (gen/list
         (gen/one-of
           [(tuple* :rest)
+           (tuple* :map-id)
            (tuple* :cons element-generator)
            (tuple* :conj element-generator)]))
       [:into])))
@@ -131,6 +132,7 @@
               f (case action
                   :cons #(cons x %)
                   :rest rest
+                  :map-id #(map identity %)
                   :seq seq
                   :into [#(into (empty orig-a) %) #(into (empty orig-b) %)]
                   :persistent! persistent!
@@ -181,8 +183,6 @@
 
 (defn assert-equivalent-vectors [a b]
   (assert-equivalent-collections a b)
-  (assert (= (map identity (next a))
-             (map identity (next b))))
   (assert (= (first a) (first b)))
   (assert (= (map #(nth a %) (range (count a)))
             (map #(nth b %) (range (count b)))))
