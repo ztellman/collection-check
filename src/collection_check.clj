@@ -19,11 +19,14 @@
     `(with-meta ~v ~m)
     v))
 
-(def with-meta-gen
+(defn gen-meta [gen]
   (gen/fmap
-    (fn [[a b]]
-      (with-meta [a] {:mynum b}))
-    (gen/tuple gen/int gen/int)))
+    (fn [[x mta]]
+      (if (instance? clojure.lang.IObj x)
+        ()))
+    (gen/tuple
+      gen
+      (gen/one-of [gen/int (gen/return nil)]))))
 
 (defn- tuple* [& args]
   (->> args
@@ -53,7 +56,8 @@
       [:into])))
 
 (defn- gen-vector-actions [element-generator transient? ordered?]
-  (let [standard [(ttuple :pop)
+  (let [element-generator (gen-meta element-generator)
+        standard [(ttuple :pop)
                   (ttuple :conj element-generator)
                   (ttuple :assoc (gen/choose 0 1e3) element-generator)]
         transient (gen/fmap
@@ -77,7 +81,9 @@
             [(seq-actions element-generator)]))))))
 
 (defn- gen-map-actions [key-generator value-generator transient? ordered?]
-  (let [standard [(ttuple :dissoc key-generator)
+  (let [key-generator (gen-meta key-generator)
+        value-generator (gen-meta value-generator)
+        standard [(ttuple :dissoc key-generator)
                   (ttuple :assoc key-generator value-generator)]
         transient (gen/fmap
                     (fn [[pre actions post]]
@@ -99,7 +105,8 @@
             [(seq-actions (tuple* key-generator value-generator))]))))))
 
 (defn- gen-set-actions [element-generator transient? ordered?]
-  (let [standard [(ttuple :conj element-generator)
+  (let [element-generator (gen-meta element-generator)
+        standard [(ttuple :conj element-generator)
                   (ttuple :disj element-generator)]
         transient (gen/fmap
                     (fn [[pre actions post]]
@@ -192,18 +199,8 @@
     (assert (= (into (empty b) (take 1 b))
               (reduce #(reduced* (conj %1 %2)) (empty b) b)))))
 
-(defn make-meta-map [s]
-  (into {}
-    (for [v s] [v (meta v)])))
-
-(defn sets-equal-meta [s1 s2]
-  (= (make-meta-map s1) (make-meta-map s2)))
-
-(defn maps-equal-meta [m1 m2]
-  (and (sets-equal-meta (set (keys m1))
-                        (set (keys m2)))
-       (every? #(= (meta (m1 %)) (meta (m2 %)))
-               (keys m1))))
+(defn- meta-map [s]
+  (->> s (map #(vector % (meta %))) (into {})))
 
 (defn assert-equivalent-vectors [a b]
   (assert-equivalent-collections a b)
@@ -222,7 +219,7 @@
   (assert-equivalent-collections a b)
   (assert (= (set (map #(a %) a))
             (set (map #(b %) b))))
-  (assert (sets-equal-meta a b))
+  (assert (= (meta-map a) (meta-map b)))
   (assert (and
             (every? #(contains? a %) b)
             (every? #(contains? b %) a))))
@@ -240,10 +237,21 @@
   (assert (and
             (every? #(= (key %) (first %)) a)
             (every? #(= (key %) (first %)) b)))
-  (assert (maps-equal-meta a b))
+  (assert (= (meta-map (keys a)) (meta-map (keys b))))
+  (assert (every? #(= (meta (a %)) (meta (b %))) (keys a)))
   (assert (every? #(= (val %) (a (key %)) (b (key %))) a)))
 
 ;;;
+
+(defn describe-action [[f & rst]]
+  (fn [[f & rst]]
+    (case f
+      'into '(into (empty coll))
+      (if (empty? rst)
+        (symbol (name f))
+        (list*
+          (symbol (name f))
+          (map pr-meta rst))))))
 
 (defn- assert-not-failed [x]
   (if (:fail x)
@@ -252,10 +260,7 @@
                (str (.getMessage ^Throwable (:result x))
                  "\n  actions = " (->> actions
                                     (apply concat)
-                                    (map (fn [[f & rst]]
-                                           (if (empty? rst)
-                                             (symbol (name f))
-                                             (list* (symbol (name f)) (map pr-meta rst)))))
+                                    (map describe-action)
                                     (list* '-> 'coll)
                                     pr-str))
                (:result x))))
