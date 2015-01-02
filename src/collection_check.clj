@@ -14,6 +14,17 @@
 
 ;;;
 
+(defn pr-meta [v]
+  (if-let [m (meta v)]
+    `(with-meta ~v ~m)
+    v))
+
+(def with-meta-gen
+  (gen/fmap
+    (fn [[a b]]
+      (with-meta [a] {:mynum b}))
+    (gen/tuple gen/int gen/int)))
+
 (defn- tuple* [& args]
   (->> args
     (map
@@ -181,6 +192,19 @@
     (assert (= (into (empty b) (take 1 b))
               (reduce #(reduced* (conj %1 %2)) (empty b) b)))))
 
+(defn make-meta-map [s]
+  (into {}
+    (for [v s] [v (meta v)])))
+
+(defn sets-equal-meta [s1 s2]
+  (= (make-meta-map s1) (make-meta-map s2)))
+
+(defn maps-equal-meta [m1 m2]
+  (and (sets-equal-meta (set (keys m1))
+                        (set (keys m2)))
+       (every? #(= (meta (m1 %)) (meta (m2 %)))
+               (keys m1))))
+
 (defn assert-equivalent-vectors [a b]
   (assert-equivalent-collections a b)
   (assert (= (first a) (first b)))
@@ -198,6 +222,7 @@
   (assert-equivalent-collections a b)
   (assert (= (set (map #(a %) a))
             (set (map #(b %) b))))
+  (assert (sets-equal-meta a b))
   (assert (and
             (every? #(contains? a %) b)
             (every? #(contains? b %) a))))
@@ -215,6 +240,7 @@
   (assert (and
             (every? #(= (key %) (first %)) a)
             (every? #(= (key %) (first %)) b)))
+  (assert (maps-equal-meta a b))
   (assert (every? #(= (val %) (a (key %)) (b (key %))) a)))
 
 ;;;
@@ -229,7 +255,7 @@
                                     (map (fn [[f & rst]]
                                            (if (empty? rst)
                                              (symbol (name f))
-                                             (list* (symbol (name f)) rst))))
+                                             (list* (symbol (name f)) (map pr-meta rst)))))
                                     (list* '-> 'coll)
                                     pr-str))
                (:result x))))
