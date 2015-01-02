@@ -23,7 +23,8 @@
   (gen/fmap
     (fn [[x mta]]
       (if (instance? clojure.lang.IObj x)
-        ()))
+        (with-meta x {:foo meta})
+        x))
     (gen/tuple
       gen
       (gen/one-of [gen/int (gen/return nil)]))))
