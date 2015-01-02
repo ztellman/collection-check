@@ -42,7 +42,7 @@
 
 ;;;
 
-(defn seq-actions [element-generator]
+(defn- seq-actions [element-generator]
   (gen/fmap
     (fn [[pre actions post]]
       (concat [pre] actions [post]))
@@ -56,28 +56,31 @@
            (tuple* :conj element-generator)]))
       [:into])))
 
+(defn- transient-actions [& intermediate-actions]
+  (gen/fmap
+    (fn [[pre actions post]]
+      (concat [pre] actions [post]))
+    (tuple*
+      [:transient]
+      (gen/list
+        (gen/one-of
+          (vec intermediate-actions)))
+      [:persistent!])))
+
 (defn- gen-vector-actions [element-generator transient? ordered?]
   (let [element-generator (gen-meta element-generator)
         standard [(ttuple :pop)
                   (ttuple :conj element-generator)
-                  (ttuple :assoc (gen/choose 0 1e3) element-generator)]
-        transient (gen/fmap
-                    (fn [[pre actions post]]
-                      (concat [pre] actions [post]))
-                    (tuple*
-                      [:transient]
-                      (gen/list
-                        (gen/one-of
-                          [(tuple* :conj! element-generator)
-                           (tuple* :assoc! (gen/choose 0 999) element-generator)
-                           (tuple* :pop!)]))
-                      [:persistent!]))]
+                  (ttuple :assoc (gen/choose 0 1e3) element-generator)]]
     (gen/list
       (gen/one-of
         (concat
           standard
           (when transient?
-            [transient])
+            [(transient-actions
+               (tuple* :conj! element-generator)
+               (tuple* :assoc! (gen/choose 0 999) element-generator)
+               (tuple* :pop!))])
           (when ordered?
             [(seq-actions element-generator)]))))))
 
@@ -85,46 +88,30 @@
   (let [key-generator (gen-meta key-generator)
         value-generator (gen-meta value-generator)
         standard [(ttuple :dissoc key-generator)
-                  (ttuple :assoc key-generator value-generator)]
-        transient (gen/fmap
-                    (fn [[pre actions post]]
-                      (concat [pre] actions [post]))
-                    (tuple*
-                      [:transient]
-                      (gen/list
-                        (gen/one-of
-                          [(tuple* :dissoc! key-generator)
-                           (tuple* :assoc! key-generator value-generator)]))
-                      [:persistent!]))]
+                  (ttuple :assoc key-generator value-generator)]]
     (gen/list
       (gen/one-of
         (concat
           standard
           (when transient?
-            [transient])
+            [(transient-actions
+               (tuple* :dissoc! key-generator)
+               (tuple* :assoc! key-generator value-generator))])
           (when ordered?
             [(seq-actions (tuple* key-generator value-generator))]))))))
 
 (defn- gen-set-actions [element-generator transient? ordered?]
   (let [element-generator (gen-meta element-generator)
         standard [(ttuple :conj element-generator)
-                  (ttuple :disj element-generator)]
-        transient (gen/fmap
-                    (fn [[pre actions post]]
-                      (concat [pre] actions [post]))
-                    (tuple*
-                      [:transient]
-                      (gen/list
-                        (gen/one-of
-                          [(tuple* :conj! element-generator)
-                           (tuple* :disj! element-generator)]))
-                      [:persistent!]))]
+                  (ttuple :disj element-generator)]]
     (gen/list
       (gen/one-of
         (concat
           standard
           (when transient?
-            [transient])
+            [(transient-actions
+               (tuple* :conj! element-generator)
+               (tuple* :disj! element-generator))])
           (when ordered?
             [(seq-actions element-generator)]))))))
 
