@@ -232,14 +232,13 @@
 ;;;
 
 (defn describe-action [[f & rst]]
-  (fn [[f & rst]]
-    (case f
-      'into '(into (empty coll))
-      (if (empty? rst)
+  (case f
+    'into '(into (empty coll))
+    (if (empty? rst)
+      (symbol (name f))
+      (list*
         (symbol (name f))
-        (list*
-          (symbol (name f))
-          (map pr-meta rst))))))
+        (map pr-meta rst)))))
 
 (defn- assert-not-failed [x]
   (if (:fail x)
