@@ -233,7 +233,8 @@
 
 (defn describe-action [[f & rst]]
   (case f
-    'into '(into (empty coll))
+    :cons (list '->> (list* 'cons (map pr-meta rst)))
+    :into '(into (empty coll))
     (if (empty? rst)
       (symbol (name f))
       (list*
