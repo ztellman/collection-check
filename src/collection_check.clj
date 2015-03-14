@@ -21,7 +21,7 @@
 
 (defn gen-meta [gen]
   (gen/fmap
-    (fn [[x mta]]
+    (fn [[x meta]]
       (if (instance? clojure.lang.IObj x)
         (with-meta x {:foo meta})
         x))
