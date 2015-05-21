@@ -21,7 +21,7 @@
 
 (defn gen-meta [gen]
   (gen/fmap
-    (fn [[x mta]]
+    (fn [[x meta]]
       (if (instance? clojure.lang.IObj x)
         (with-meta x {:foo meta})
         x))
@@ -232,14 +232,14 @@
 ;;;
 
 (defn describe-action [[f & rst]]
-  (fn [[f & rst]]
-    (case f
-      'into '(into (empty coll))
-      (if (empty? rst)
+  (case f
+    :cons (list '->> (list* 'cons (map pr-meta rst)))
+    :into '(into (empty coll))
+    (if (empty? rst)
+      (symbol (name f))
+      (list*
         (symbol (name f))
-        (list*
-          (symbol (name f))
-          (map pr-meta rst))))))
+        (map pr-meta rst)))))
 
 (defn- assert-not-failed [x]
   (if (:fail x)
