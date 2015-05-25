@@ -7,7 +7,7 @@ This library tests whether a given data structure is equivalent to whatever data
 Since this is only for testing, it should be added as a `:dev` dependency:
 
 ```clj
-{:profiles {:dev {:dependencies [[collection-check "0.1.5"]]}}}
+{:profiles {:dev {:dependencies [[collection-check "0.1.6"]]}}}
 ```
 
 To validate a vector-like data structure, you can use `(assert-vector-like empty-collection element-generator)`.  For instance:
