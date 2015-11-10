@@ -1,29 +1,29 @@
-(ns collection-check
-  (:use [clojure.pprint])
+(ns collection-check.core
   (:require
     [clojure.string :as str]
-    [clojure.test :refer [is]]
     [clojure.test.check :refer (quick-check)]
-    [clojure.test.check
-     [generators :as gen]
-     [properties :as prop]]
-    [com.gfredericks.test.chuck.clojure-test :as chuck])
-  (:import
-    [java.util Collection List Map]))
+    [clojure.test.check.generators :as gen]
+    [clojure.test.check.properties :as prop]
+    ;; Macros Clojure
+    #?(:clj [clojure.test :refer [is]])
+    #?(:clj [collection-check.util :as util])
+    #?(:clj [com.gfredericks.test.chuck.clojure-test :refer [checking]]))
+  ;; Macros ClojureScript
+  #?(:cljs (:require-macros
+            [com.gfredericks.test.chuck.clojure-test :refer [checking]]
+            [collection-check.util :as util]
+            [cljs.test :refer [is]]))
+  #?(:clj (:import [java.util Collection List Map])))
 
-(set! *warn-on-reflection* false)
+#?(:clj (set! *warn-on-reflection* false))
 
 ;;;
-
-(defn pr-meta [v]
-  (if-let [m (meta v)]
-    `(with-meta ~v ~m)
-    v))
 
 (defn gen-meta [gen]
   (gen/fmap
     (fn [[x meta]]
-      (if (instance? clojure.lang.IObj x) ;; CLJC
+      (if #?(:clj (instance? clojure.lang.IObj x)
+             :cljs (satisfies? cljs.core/IWithMeta x)) ;; CLJC
         (with-meta x {:foo meta})
         x))
     (gen/tuple
@@ -166,7 +166,7 @@
 ;;;
 
 ;; indirection for 1.4 compatibility
-(def reduced* (ns-resolve 'clojure.core 'reduced)) ;; CLJC
+;; (def reduced* (ns-resolve 'clojure.core 'reduced)) ;; CLJC
 
 (defn assert-equivalent-collections
   [a b]
@@ -182,11 +182,10 @@
             (into (empty b) b)
             (into (empty a) b)
             (into (empty b) a)))
-  (when reduced*
-    (is (= (into (empty a) (take 1 a))
-              (reduce #(reduced* (conj %1 %2)) (empty a) a)))
-    (is (= (into (empty b) (take 1 b))
-              (reduce #(reduced* (conj %1 %2)) (empty b) b)))))
+  (is (= (into (empty a) (take 1 a))
+         (reduce #(reduced (conj %1 %2)) (empty a) a)))
+  (is (= (into (empty b) (take 1 b))
+         (reduce #(reduced (conj %1 %2)) (empty b) b))))
 
 (defn- meta-map [s]
   (->> s (map #(vector % (meta %))) (into {})))
@@ -232,34 +231,6 @@
 
 ;;;
 
-(defn describe-action [[f & rst]]
-  (case f
-    :cons (list '->> (list* 'cons (map pr-meta rst)))
-    :into '(into (empty coll))
-    (if (empty? rst)
-      (symbol (name f))
-      (list*
-        (symbol (name f))
-        (map pr-meta rst)))))
-
-(defn- report-failing-actions [x]
-  (when (and (= :fail (:type x))
-             (get-in x [:message :shrunk]))
-    (let [actions (get-in x [:message :shrunk :smallest])]
-      (println "\n  actions = " (->> actions
-                                     first
-                                     (apply concat)
-                                     (map describe-action)
-                                     (list* '-> 'coll)
-                                     pr-str)
-               "\n"))))
-
-(defmacro reporting-failing-actions [& body]
-  `(let [old-report-fn# ~'clojure.test/report] ; CLJC
-      (binding [clojure.test/report #(do (old-report-fn# %) ; CLJC
-                                         (report-failing-actions %))]
-        ~@body)))
-
 (defn assert-vector-like
   "Asserts that the given empty collection behaves like a vector."
   ([empty-coll element-generator]
@@ -270,8 +241,9 @@
     {:keys [base ordered?]
      :or {ordered? true
           base []}}]
-       (reporting-failing-actions
-         (chuck/checking "vector-like" n
+       (#?(:clj  util/clj-reporting-failing-actions
+           :cljs util/cljs-reporting-failing-actions)
+         (checking "vector-like" n
            [actions (gen-vector-actions element-generator (transient? empty-coll) ordered?)]
            (let [[a b actions] (build-collections empty-coll base true actions)]
              (assert-equivalent-vectors a b))))))
@@ -285,8 +257,9 @@
     {:keys [base ordered?]
      :or {ordered? false
           base #{}}}]
-     (reporting-failing-actions
-       (chuck/checking "set-like" n
+     (#?(:clj  util/clj-reporting-failing-actions
+         :cljs util/cljs-reporting-failing-actions)
+       (checking "set-like" n
          [actions (gen-set-actions element-generator (transient? empty-coll) ordered?)]
          (let [[a b actions] (build-collections empty-coll base false actions)]
            (assert-equivalent-sets a b))))))
@@ -300,8 +273,9 @@
     {:keys [base ordered?]
      :or {ordered? false
           base {}}}]
-     (reporting-failing-actions
-       (chuck/checking "map-like" n
+   (#?(:clj  util/clj-reporting-failing-actions
+       :cljs util/cljs-reporting-failing-actions)
+       (checking "map-like" n
          [actions (gen-map-actions key-generator value-generator (transient? empty-coll) ordered?)]
          (let [[a b actions] (build-collections empty-coll base false actions)]
            (assert-equivalent-maps a b))))))
