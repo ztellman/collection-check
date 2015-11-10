@@ -1,6 +1,5 @@
 (ns collection-check
-  (:use
-    [clojure.pprint])
+  (:use [clojure.pprint])
   (:require
     [clojure.string :as str]
     [clojure.test :refer [is]]
@@ -24,7 +23,7 @@
 (defn gen-meta [gen]
   (gen/fmap
     (fn [[x meta]]
-      (if (instance? clojure.lang.IObj x)
+      (if (instance? clojure.lang.IObj x) ;; CLJC
         (with-meta x {:foo meta})
         x))
     (gen/tuple
@@ -118,7 +117,7 @@
             [(seq-actions element-generator)]))))))
 
 (defn- transient? [x]
-  (instance? clojure.lang.IEditableCollection x))
+  (instance? clojure.lang.IEditableCollection x)) ;; CLJC
 
 (defn- build-collections
   "Given a list of actions, constructs two parallel collections that can be compared
@@ -167,7 +166,7 @@
 ;;;
 
 ;; indirection for 1.4 compatibility
-(def reduced* (ns-resolve 'clojure.core 'reduced))
+(def reduced* (ns-resolve 'clojure.core 'reduced)) ;; CLJC
 
 (defn assert-equivalent-collections
   [a b]
@@ -256,8 +255,8 @@
                "\n"))))
 
 (defmacro reporting-failing-actions [& body]
-  `(let [old-report-fn# ~'clojure.test/report]
-      (binding [clojure.test/report #(do (old-report-fn# %)
+  `(let [old-report-fn# ~'clojure.test/report] ; CLJC
+      (binding [clojure.test/report #(do (old-report-fn# %) ; CLJC
                                          (report-failing-actions %))]
         ~@body)))
 
