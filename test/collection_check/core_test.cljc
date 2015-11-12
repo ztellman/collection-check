@@ -1,8 +1,8 @@
 (ns collection-check.core-test
   (:require
    #?(:clj [clojure.test :refer [deftest]])
-    [collection-check.core :as cc]
-    [clojure.test.check.generators :as gen])
+   [collection-check.core :as cc]
+   [clojure.test.check.generators :as gen])
   #?(:cljs (:require-macros [cljs.test :refer [deftest]])))
 
 (def gen-element
