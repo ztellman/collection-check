@@ -6,13 +6,14 @@
     [clojure.test.check.properties :as prop]
     ;; Macros Clojure
     #?(:clj [clojure.test :refer [is]])
-    #?(:clj [collection-check.util :as util])
-    #?(:clj [com.gfredericks.test.chuck.clojure-test :refer [checking]]))
+    #?(:clj [collection-check.macros :as m])
+    #?(:clj [com.gfredericks.test.chuck.clojure-test :refer [checking]])
+    ;; Make sure CLJS macro namespaces are required
+    #?(:cljs [com.gfredericks.test.chuck.clojure-test]))
   ;; Macros ClojureScript
-  #?(:cljs (:require-macros
-            [com.gfredericks.test.chuck.clojure-test :refer [checking]]
-            [collection-check.util :as util]
-            [cljs.test :refer [is]]))
+  #?(:cljs (:require-macros [com.gfredericks.test.chuck.clojure-test :refer [checking]]
+                            [collection-check.macros :as m]
+                            [cljs.test :refer [is]]))
   #?(:clj (:import [java.util Collection List Map])))
 
 #?(:clj (set! *warn-on-reflection* false))
@@ -217,19 +218,47 @@
   (is (= (set (keys a)) (set (keys b))))
   (let [ks (keys a)]
     (is (= (map #(get a %) ks)
-              (map #(get b %) ks)))
+           (map #(get b %) ks)))
     (is (= (map #(a %) ks)
-              (map #(b %) ks)))
+           (map #(b %) ks)))
     (is (= (map #(.get ^Map a %) ks)
-              (map #(.get ^Map b %) ks))))
-  (is (and
-            (every? #(= (key %) (first %)) a)
-            (every? #(= (key %) (first %)) b)))
+           (map #(.get ^Map b %) ks))))
+  (is (and (every? #(= (key %) (first %)) a)
+           (every? #(= (key %) (first %)) b)))
   (is (= (meta-map (keys a)) (meta-map (keys b))))
   (is (every? #(= (meta (a %)) (meta (b %))) (keys a)))
   (is (every? #(= (val %) (a (key %)) (b (key %))) a)))
 
 ;;;
+
+(defn pr-meta [v]
+  (if-let [m (meta v)]
+    `(with-meta ~v ~m)
+    v))
+
+(defn describe-action [[f & rst]]
+  (case f
+    :cons (list '->> (list* 'cons (map pr-meta rst)))
+    :into '(into (empty coll))
+    (if (empty? rst)
+      (symbol (name f))
+      (list*
+        (symbol (name f))
+        (map pr-meta rst)))))
+
+(defn report-failing-actions [x]
+  (when (and (= :fail (:type x))
+             (get-in x [:message :shrunk]))
+    (let [actions (get-in x [:message :shrunk :smallest])]
+      (println "\n  actions = " (->> actions
+                                     first
+                                     (apply concat)
+                                     (map describe-action)
+                                     (list* '-> 'coll)
+                                     pr-str)
+               "\n"))))
+
+;;
 
 (defn assert-vector-like
   "Asserts that the given empty collection behaves like a vector."
@@ -241,8 +270,8 @@
     {:keys [base ordered?]
      :or {ordered? true
           base []}}]
-       (#?(:clj  util/clj-reporting-failing-actions
-           :cljs util/cljs-reporting-failing-actions)
+       (#?(:clj  m/clj-reporting-failing-actions
+           :cljs m/cljs-reporting-failing-actions)
          (checking "vector-like" n
            [actions (gen-vector-actions element-generator (transient? empty-coll) ordered?)]
            (let [[a b actions] (build-collections empty-coll base true actions)]
@@ -257,8 +286,8 @@
     {:keys [base ordered?]
      :or {ordered? false
           base #{}}}]
-     (#?(:clj  util/clj-reporting-failing-actions
-         :cljs util/cljs-reporting-failing-actions)
+     (#?(:clj  m/clj-reporting-failing-actions
+         :cljs m/cljs-reporting-failing-actions)
        (checking "set-like" n
          [actions (gen-set-actions element-generator (transient? empty-coll) ordered?)]
          (let [[a b actions] (build-collections empty-coll base false actions)]
@@ -273,8 +302,8 @@
     {:keys [base ordered?]
      :or {ordered? false
           base {}}}]
-   (#?(:clj  util/clj-reporting-failing-actions
-       :cljs util/cljs-reporting-failing-actions)
+   (#?(:clj  m/clj-reporting-failing-actions
+       :cljs m/cljs-reporting-failing-actions)
        (checking "map-like" n
          [actions (gen-map-actions key-generator value-generator (transient? empty-coll) ordered?)]
          (let [[a b actions] (build-collections empty-coll base false actions)]
