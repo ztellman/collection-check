@@ -24,7 +24,7 @@
   (gen/fmap
     (fn [[x meta]]
       (if #?(:clj (instance? clojure.lang.IObj x)
-             :cljs (satisfies? cljs.core/IWithMeta x)) ;; CLJC
+             :cljs (satisfies? cljs.core/IWithMeta x))
         (with-meta x {:foo meta})
         x))
     (gen/tuple
@@ -118,7 +118,8 @@
             [(seq-actions element-generator)]))))))
 
 (defn- transient? [x]
-  (instance? clojure.lang.IEditableCollection x)) ;; CLJC
+  #?(:clj  (instance? clojure.lang.IEditableCollection x)
+     :cljs (satisfies? cljs.core/IEditableCollection x)))
 
 (defn- build-collections
   "Given a list of actions, constructs two parallel collections that can be compared
