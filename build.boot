@@ -20,6 +20,9 @@
 
 (deftask testing []
   (merge-env! :source-paths #{"test"})
+  (let [nss #{'collection-check.core-test}]
+    (task-options! test-cljs {:namespaces nss}
+                   test      {:namespaces nss}))
   identity)
 
 (deftask test-cljc []
