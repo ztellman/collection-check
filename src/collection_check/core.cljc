@@ -5,15 +5,13 @@
     [clojure.test.check.generators :as gen]
     [clojure.test.check.properties :as prop]
     ;; Macros Clojure
-    #?(:clj [clojure.test :refer [is]])
-    #?(:clj [collection-check.macros :as m])
-    #?(:clj [com.gfredericks.test.chuck.clojure-test :refer [checking]])
-    ;; Make sure CLJS macro namespaces are required
-    #?(:cljs [com.gfredericks.test.chuck.clojure-test]))
+    #?(:clj [clojure.test :refer [is]]
+       :cljs [cljs.test :refer-macros [is]])
+    #?(:clj [com.gfredericks.test.chuck.clojure-test :refer [checking]]
+       :cljs [com.gfredericks.test.chuck.clojure-test :refer-macros [checking]])
+    #?(:clj [collection-check.macros :as m]))
   ;; Macros ClojureScript
-  #?(:cljs (:require-macros [com.gfredericks.test.chuck.clojure-test :refer [checking]]
-                            [collection-check.macros :as m]
-                            [cljs.test :refer [is]]))
+  #?(:cljs (:require-macros [collection-check.macros :as m]))
   #?(:clj (:import [java.util Collection List Map])))
 
 #?(:clj (set! *warn-on-reflection* false))
