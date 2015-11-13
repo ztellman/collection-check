@@ -8,7 +8,7 @@
     #?(:clj [clojure.test :as ct :refer [is]]
        :cljs [cljs.test :as ct :refer-macros [is]])
     #?(:clj [com.gfredericks.test.chuck.clojure-test :as chuck]
-       :cljs [com.gfredericks.test.chuck.clojure-test :as chuck]))
+       :cljs [com.gfredericks.test.chuck.clojure-test :as chuck :include-macros true]))
   ;; Macros ClojureScript
   #?(:clj (:import [java.util Collection List Map])))
 
