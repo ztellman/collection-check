@@ -170,13 +170,15 @@
 
 (defn assert-equivalent-collections
   [a b]
-  (is (= (count a) (count b) (.size a) (.size b)))
+  (is (= (count a) (count b)
+         #?@(:clj [(.size a) (.size b)]
+             :cljs [(.length a)])))
   (is (= a b))
   (is (= b a))
-  (is (.equals ^Object a b))
-  (is (.equals ^Object b a))
   (is (= (hash a) (hash b)))
-  (is (= (.hashCode ^Object a) (.hashCode ^Object b)))
+  #?@(:clj [(is (.equals ^Object a b))
+            (is (.equals ^Object b a))
+            (is (= (.hashCode ^Object a) (.hashCode ^Object b)))])
   (is (= a b
          (into (empty a) a)
          (into (empty b) b)
@@ -245,16 +247,16 @@
         (map pr-meta rst)))))
 
 (defn report-failing-actions [x]
-  (when (and (= :fail (:type x))
-             (get-in x [:message :shrunk]))
-    (let [actions (get-in x [:message :shrunk :smallest])]
-      (println "\n  actions = " (->> actions
-                                     first
-                                     (apply concat)
-                                     (map describe-action)
-                                     (list* '-> 'coll)
-                                     pr-str)
-               "\n"))))
+  ;; (when (= :error (:type x))
+  ;;   (println x))
+  (when-let [smallest (get-in x [:message :shrunk :smallest])]
+    (println "TYPE " (:type x))
+    (println "\n  actions = " (->> (get (first smallest) 'actions)
+                                   (apply concat)
+                                   (map describe-action)
+                                   (list* '-> 'coll)
+                                   pr-str)
+             "\n")))
 
 ;;
 
