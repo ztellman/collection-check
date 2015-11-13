@@ -5,13 +5,11 @@
     [clojure.test.check.generators :as gen]
     [clojure.test.check.properties :as prop]
     ;; Macros Clojure
-    #?(:clj [clojure.test :refer [is]]
-       :cljs [cljs.test :refer-macros [is]])
-    #?(:clj [com.gfredericks.test.chuck.clojure-test :refer [checking]]
-       :cljs [com.gfredericks.test.chuck.clojure-test :refer-macros [checking]])
-    #?(:clj [collection-check.macros :as m]))
+    #?(:clj [clojure.test :as ct :refer [is]]
+       :cljs [cljs.test :as ct :refer-macros [is]])
+    #?(:clj [com.gfredericks.test.chuck.clojure-test :as chuck]
+       :cljs [com.gfredericks.test.chuck.clojure-test :as chuck]))
   ;; Macros ClojureScript
-  #?(:cljs (:require-macros [collection-check.macros :as m]))
   #?(:clj (:import [java.util Collection List Map])))
 
 #?(:clj (set! *warn-on-reflection* false))
@@ -170,9 +168,7 @@
 
 (defn assert-equivalent-collections
   [a b]
-  (is (= (count a) (count b)
-         #?@(:clj [(.size a) (.size b)]
-             :cljs [(.length a)])))
+  (is (= (count a) (count b) #?@(:clj [(.size a) (.size b)])))
   (is (= a b))
   (is (= b a))
   (is (= (hash a) (hash b)))
@@ -201,8 +197,8 @@
          (map #(b %) (range (count b)))))
   (is (= (map #(get a %) (range (count a)))
          (map #(get b %) (range (count b)))))
-  (is (= (map #(.get ^List a %) (range (count a)))
-         (map #(.get ^List b %) (range (count b)))))
+  #?(:clj (is (= (map #(.get ^List a %) (range (count a)))
+                 (map #(.get ^List b %) (range (count b))))))
   (is (= 0 (compare a b))))
 
 (defn assert-equivalent-sets [a b]
@@ -246,17 +242,18 @@
         (symbol (name f))
         (map pr-meta rst)))))
 
-(defn report-failing-actions [x]
-  ;; (when (= :error (:type x))
-  ;;   (println x))
-  (when-let [smallest (get-in x [:message :shrunk :smallest])]
-    (println "TYPE " (:type x))
-    (println "\n  actions = " (->> (get (first smallest) 'actions)
-                                   (apply concat)
-                                   (map describe-action)
-                                   (list* '-> 'coll)
-                                   pr-str)
-             "\n")))
+(defn actions->str [actions]
+  (->> actions
+       (apply concat)
+       (map describe-action)
+       (list* '-> 'coll)
+       pr-str))
+
+(defmethod ct/report #?(:clj ::chuck/shrunk :cljs [::ct/default ::chuck/shrunk]) [m]
+  (newline)
+  (println "Tests failed:\n"
+           "\n    seed =" (:seed m)
+           "\n actions =" (-> m :shrunk :smallest first (get 'actions) actions->str)))
 
 ;;
 
@@ -270,12 +267,10 @@
     {:keys [base ordered?]
      :or {ordered? true
           base []}}]
-       (#?(:clj  m/clj-reporting-failing-actions
-           :cljs m/cljs-reporting-failing-actions)
-         (checking "vector-like" n
-           [actions (gen-vector-actions element-generator (transient? empty-coll) ordered?)]
-           (let [[a b actions] (build-collections empty-coll base true actions)]
-             (assert-equivalent-vectors a b))))))
+   (chuck/checking "vector-like" n
+    [actions (gen-vector-actions element-generator (transient? empty-coll) ordered?)]
+    (let [[a b actions] (build-collections empty-coll base true actions)]
+      (assert-equivalent-vectors a b)))));)
 
 (defn assert-set-like
   ([empty-coll element-generator]
@@ -286,12 +281,10 @@
     {:keys [base ordered?]
      :or {ordered? false
           base #{}}}]
-     (#?(:clj  m/clj-reporting-failing-actions
-         :cljs m/cljs-reporting-failing-actions)
-       (checking "set-like" n
-         [actions (gen-set-actions element-generator (transient? empty-coll) ordered?)]
-         (let [[a b actions] (build-collections empty-coll base false actions)]
-           (assert-equivalent-sets a b))))))
+   (chuck/checking "set-like" n
+    [actions (gen-set-actions element-generator (transient? empty-coll) ordered?)]
+    (let [[a b actions] (build-collections empty-coll base false actions)]
+      (assert-equivalent-sets a b)))))
 
 (defn assert-map-like
   ([empty-coll key-generator value-generator]
@@ -302,9 +295,7 @@
     {:keys [base ordered?]
      :or {ordered? false
           base {}}}]
-   (#?(:clj  m/clj-reporting-failing-actions
-       :cljs m/cljs-reporting-failing-actions)
-       (checking "map-like" n
-         [actions (gen-map-actions key-generator value-generator (transient? empty-coll) ordered?)]
-         (let [[a b actions] (build-collections empty-coll base false actions)]
-           (assert-equivalent-maps a b))))))
+   (chuck/checking "map-like" n
+    [actions (gen-map-actions key-generator value-generator (transient? empty-coll) ordered?)]
+    (let [[a b actions] (build-collections empty-coll base false actions)]
+      (assert-equivalent-maps a b)))))
