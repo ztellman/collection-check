@@ -1,9 +1,9 @@
 (ns collection-check.core-test
   (:require
-   #?(:clj [clojure.test :refer [deftest]])
+   #?(:clj [clojure.test :refer [deftest]]
+      :cljs [cljs.test :refer-macros [deftest]])
    [collection-check.core :as cc]
-   [clojure.test.check.generators :as gen])
-  #?(:cljs (:require-macros [cljs.test :refer [deftest]])))
+   [clojure.test.check.generators :as gen]))
 
 (def gen-element
   (gen/tuple gen/int))
