@@ -1,30 +1,26 @@
-(ns collection-check
-  (:use
-    [clojure.pprint])
+(ns collection-check.core
   (:require
     [clojure.string :as str]
-    [clojure.test :refer [is]]
     [clojure.test.check :refer (quick-check)]
-    [clojure.test.check
-     [generators :as gen]
-     [properties :as prop]]
-    [com.gfredericks.test.chuck.clojure-test :as chuck])
-  (:import
-    [java.util Collection List Map]))
+    [clojure.test.check.generators :as gen]
+    [clojure.test.check.properties :as prop]
+    ;; Macros Clojure
+    #?(:clj [clojure.test :as ct :refer [is]]
+       :cljs [cljs.test :as ct :refer-macros [is]])
+    #?(:clj [com.gfredericks.test.chuck.clojure-test :as chuck]
+       :cljs [com.gfredericks.test.chuck.clojure-test :as chuck :include-macros true]))
+  ;; Macros ClojureScript
+  #?(:clj (:import [java.util Collection List Map])))
 
-(set! *warn-on-reflection* false)
+#?(:clj (set! *warn-on-reflection* false))
 
 ;;;
-
-(defn pr-meta [v]
-  (if-let [m (meta v)]
-    `(with-meta ~v ~m)
-    v))
 
 (defn gen-meta [gen]
   (gen/fmap
     (fn [[x meta]]
-      (if (instance? clojure.lang.IObj x)
+      (if #?(:clj (instance? clojure.lang.IObj x)
+             :cljs (satisfies? cljs.core/IWithMeta x))
         (with-meta x {:foo meta})
         x))
     (gen/tuple
@@ -118,7 +114,8 @@
             [(seq-actions element-generator)]))))))
 
 (defn- transient? [x]
-  (instance? clojure.lang.IEditableCollection x))
+  #?(:clj  (instance? clojure.lang.IEditableCollection x)
+     :cljs (satisfies? cljs.core/IEditableCollection x)))
 
 (defn- build-collections
   "Given a list of actions, constructs two parallel collections that can be compared
@@ -167,27 +164,26 @@
 ;;;
 
 ;; indirection for 1.4 compatibility
-(def reduced* (ns-resolve 'clojure.core 'reduced))
+;; (def reduced* (ns-resolve 'clojure.core 'reduced)) ;; CLJC
 
 (defn assert-equivalent-collections
   [a b]
-  (is (= (count a) (count b) (.size a) (.size b)))
+  (is (= (count a) (count b) #?@(:clj [(.size a) (.size b)])))
   (is (= a b))
   (is (= b a))
-  (is (.equals ^Object a b))
-  (is (.equals ^Object b a))
   (is (= (hash a) (hash b)))
-  (is (= (.hashCode ^Object a) (.hashCode ^Object b)))
+  #?@(:clj [(is (.equals ^Object a b))
+            (is (.equals ^Object b a))
+            (is (= (.hashCode ^Object a) (.hashCode ^Object b)))])
   (is (= a b
-            (into (empty a) a)
-            (into (empty b) b)
-            (into (empty a) b)
-            (into (empty b) a)))
-  (when reduced*
-    (is (= (into (empty a) (take 1 a))
-              (reduce #(reduced* (conj %1 %2)) (empty a) a)))
-    (is (= (into (empty b) (take 1 b))
-              (reduce #(reduced* (conj %1 %2)) (empty b) b)))))
+         (into (empty a) a)
+         (into (empty b) b)
+         (into (empty a) b)
+         (into (empty b) a)))
+  (is (= (into (empty a) (take 1 a))
+         (reduce #(reduced (conj %1 %2)) (empty a) a)))
+  (is (= (into (empty b) (take 1 b))
+         (reduce #(reduced (conj %1 %2)) (empty b) b))))
 
 (defn- meta-map [s]
   (->> s (map #(vector % (meta %))) (into {})))
@@ -196,42 +192,45 @@
   (assert-equivalent-collections a b)
   (is (= (first a) (first b)))
   (is (= (map #(nth a %) (range (count a)))
-            (map #(nth b %) (range (count b)))))
+         (map #(nth b %) (range (count b)))))
   (is (= (map #(a %) (range (count a)))
-            (map #(b %) (range (count b)))))
+         (map #(b %) (range (count b)))))
   (is (= (map #(get a %) (range (count a)))
-            (map #(get b %) (range (count b)))))
-  (is (= (map #(.get ^List a %) (range (count a)))
-            (map #(.get ^List b %) (range (count b)))))
+         (map #(get b %) (range (count b)))))
+  #?(:clj (is (= (map #(.get ^List a %) (range (count a)))
+                 (map #(.get ^List b %) (range (count b))))))
   (is (= 0 (compare a b))))
 
 (defn assert-equivalent-sets [a b]
   (assert-equivalent-collections a b)
   (is (= (set (map #(a %) a))
-            (set (map #(b %) b))))
+         (set (map #(b %) b))))
   (is (= (meta-map a) (meta-map b)))
-  (is (and
-            (every? #(contains? a %) b)
-            (every? #(contains? b %) a))))
+  (is (and (every? #(contains? a %) b)
+           (every? #(contains? b %) a))))
 
 (defn assert-equivalent-maps [a b]
   (assert-equivalent-collections a b)
   (is (= (set (keys a)) (set (keys b))))
   (let [ks (keys a)]
     (is (= (map #(get a %) ks)
-              (map #(get b %) ks)))
+           (map #(get b %) ks)))
     (is (= (map #(a %) ks)
-              (map #(b %) ks)))
+           (map #(b %) ks)))
     (is (= (map #(.get ^Map a %) ks)
-              (map #(.get ^Map b %) ks))))
-  (is (and
-            (every? #(= (key %) (first %)) a)
-            (every? #(= (key %) (first %)) b)))
+           (map #(.get ^Map b %) ks))))
+  (is (and (every? #(= (key %) (first %)) a)
+           (every? #(= (key %) (first %)) b)))
   (is (= (meta-map (keys a)) (meta-map (keys b))))
   (is (every? #(= (meta (a %)) (meta (b %))) (keys a)))
   (is (every? #(= (val %) (a (key %)) (b (key %))) a)))
 
 ;;;
+
+(defn pr-meta [v]
+  (if-let [m (meta v)]
+    `(with-meta ~v ~m)
+    v))
 
 (defn describe-action [[f & rst]]
   (case f
@@ -243,23 +242,20 @@
         (symbol (name f))
         (map pr-meta rst)))))
 
-(defn- report-failing-actions [x]
-  (when (and (= :fail (:type x))
-             (get-in x [:message :shrunk]))
-    (let [actions (get-in x [:message :shrunk :smallest])]
-      (println "\n  actions = " (->> actions
-                                     first
-                                     (apply concat)
-                                     (map describe-action)
-                                     (list* '-> 'coll)
-                                     pr-str)
-               "\n"))))
+(defn actions->str [actions]
+  (->> actions
+       (apply concat)
+       (map describe-action)
+       (list* '-> 'coll)
+       pr-str))
 
-(defmacro reporting-failing-actions [& body]
-  `(let [old-report-fn# ~'clojure.test/report]
-      (binding [clojure.test/report #(do (old-report-fn# %)
-                                         (report-failing-actions %))]
-        ~@body)))
+(defmethod ct/report #?(:clj ::chuck/shrunk :cljs [::ct/default ::chuck/shrunk]) [m]
+  (newline)
+  (println "Tests failed:\n"
+           "\n    seed =" (:seed m)
+           "\n actions =" (-> m :shrunk :smallest first (get 'actions) actions->str)))
+
+;;
 
 (defn assert-vector-like
   "Asserts that the given empty collection behaves like a vector."
@@ -271,11 +267,10 @@
     {:keys [base ordered?]
      :or {ordered? true
           base []}}]
-       (reporting-failing-actions
-         (chuck/checking "vector-like" n
-           [actions (gen-vector-actions element-generator (transient? empty-coll) ordered?)]
-           (let [[a b actions] (build-collections empty-coll base true actions)]
-             (assert-equivalent-vectors a b))))))
+   (chuck/checking "vector-like" n
+    [actions (gen-vector-actions element-generator (transient? empty-coll) ordered?)]
+    (let [[a b actions] (build-collections empty-coll base true actions)]
+      (assert-equivalent-vectors a b)))));)
 
 (defn assert-set-like
   ([empty-coll element-generator]
@@ -286,11 +281,10 @@
     {:keys [base ordered?]
      :or {ordered? false
           base #{}}}]
-     (reporting-failing-actions
-       (chuck/checking "set-like" n
-         [actions (gen-set-actions element-generator (transient? empty-coll) ordered?)]
-         (let [[a b actions] (build-collections empty-coll base false actions)]
-           (assert-equivalent-sets a b))))))
+   (chuck/checking "set-like" n
+    [actions (gen-set-actions element-generator (transient? empty-coll) ordered?)]
+    (let [[a b actions] (build-collections empty-coll base false actions)]
+      (assert-equivalent-sets a b)))))
 
 (defn assert-map-like
   ([empty-coll key-generator value-generator]
@@ -301,8 +295,7 @@
     {:keys [base ordered?]
      :or {ordered? false
           base {}}}]
-     (reporting-failing-actions
-       (chuck/checking "map-like" n
-         [actions (gen-map-actions key-generator value-generator (transient? empty-coll) ordered?)]
-         (let [[a b actions] (build-collections empty-coll base false actions)]
-           (assert-equivalent-maps a b))))))
+   (chuck/checking "map-like" n
+    [actions (gen-map-actions key-generator value-generator (transient? empty-coll) ordered?)]
+    (let [[a b actions] (build-collections empty-coll base false actions)]
+      (assert-equivalent-maps a b)))))
