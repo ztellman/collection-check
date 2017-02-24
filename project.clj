@@ -1,4 +1,4 @@
-(defproject collection-check "0.1.7-SNAPSHOT"
+(defproject collection-check "0.1.7"
   :description "fuzz testing for alternate data structures"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
